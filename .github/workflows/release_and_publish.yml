@@ -1,0 +1,226 @@
+name: Build, release and publish
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build Program ${{ matrix.build.target }}
+    runs-on: ${{ matrix.build.os }}
+    strategy:
+      matrix:
+        build:
+          - os: macOs-latest
+            target: x86_64-apple-darwin
+            path: ./target/x86_64-apple-darwin/release/little-game
+            del_command: "[ -d ./dist ] && rm -rf dist"
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            path: ./target/x86_64-unknown-linux-gnu/release/little-game
+            del_command: "[ -d ./dist ] && rm -rf dist"
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            path: ./target/x86_64-unknown-linux-musl/release/little-game
+            del_command: "[ -d ./dist ] && rm -rf dist"
+          - os: windows-latest
+            target: x86_64-pc-windows-gnu
+            path: ./target/x86_64-pc-windows-gnu/release/little-game.exe
+            del_command: if (Test-Path -Path ./dist ) { rm -Recurse -Force ./dist } else { Write-Host "The folder doesn't exists, continue with the jobs" }
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install build inputs
+        if: runner.os == 'Linux'
+        run: sudo apt install musl-tools
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        id: rust-toolchain
+        with:
+          toolchain: stable
+          target: ${{ matrix.build.target }}
+
+      - name: Update rust
+        run: rustup update
+
+      - name: Cache cargo
+        uses: actions/cache@v3
+        id: cache-cargo
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ steps.rust-toolchain.outputs.cachekey }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Compile release binary
+        run: cargo build --release --target ${{ matrix.build.target }} --verbose
+
+      - name: Create release archive
+        run: |
+          ${{ matrix.build.del_command }}
+          mkdir dist
+          cp ${{ matrix.build.path }} dist/little-game-${{ matrix.build.target }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.build.target }}
+          path: |
+            dist/little-game-${{ matrix.build.target }}
+          if-no-files-found: error
+          retention-days: 1
+
+  release_draft:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release_draft.outputs.release_created }}
+      tag_name: ${{ steps.release_draft.outputs.tag_name }}
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Update release PR
+        uses: google-github-actions/release-please-action@v3
+        with:
+          release-type: rust
+          package-name: little-game
+          command: release-pr
+
+      - id: release_draft
+        name: Create release draft when PR already merged
+        uses: google-github-actions/release-please-action@v3
+        with:
+          release-type: rust
+          package-name: little-game
+          command: github-release
+          draft: true
+
+      - name: Output wheter new draft release were created or not
+        run: |
+          if [ "${{ steps.release_draft.outputs.release_created }}" == "true" ]
+          then
+            echo ::notice title=Release created::Created new draft release from PR
+          else
+            echo ::notice title=No release created::PR created/updated, no new draft release created
+          fi
+
+  upload:
+    needs: release_draft
+    if: needs.release_draft.outputs.release_created
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Remove existing dist folder
+        run: rm -vrf dist
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Prepare Github Release artifacts
+        run: |
+          rm -rf dist
+          mkdir dist/
+          mv artifacts/x86_64-apple-darwin/little-game-x86_64-apple-darwin dist/
+          mv artifacts/x86_64-unknown-linux-gnu/little-game-x86_64-unknown-linux-gnu dist/
+          mv artifacts/x86_64-unknown-linux-musl/little-game-x86_64-unknown-linux-musl dist/
+          mv artifacts/x86_64-pc-windows-gnu/little-game-x86_64-pc-windows-gnu dist/little-game-x86_64-pc-windows-gnu.exe
+
+      - name: Add artifact to release
+        run: gh release upload ${{ needs.release_draft.outputs.tag_name }} dist/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs: release_draft
+    if: needs.release_draft.outputs.release_created
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Make Github Actions bot the Git user
+        uses: fregante/setup-git-user@v1
+
+      - name: Remove existing dist folder
+        run: rm -vrf dist
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Prepare Github Release artifacts
+        run: |
+          rm -rf dist
+          mkdir dist/
+          mv artifacts/x86_64-apple-darwin/little-game-x86_64-apple-darwin dist/
+          mv artifacts/x86_64-unknown-linux-gnu/little-game-x86_64-unknown-linux-gnu dist/
+          mv artifacts/x86_64-unknown-linux-musl/little-game-x86_64-unknown-linux-musl dist/
+          mv artifacts/x86_64-pc-windows-gnu/little-game-x86_64-pc-windows-gnu dist/little-game-x86_64-pc-windows-gnu.exe
+
+      - name: Commit new artifacts into the repo
+        run: |
+          git add dist/
+          git commit -m 'chore: update app to version ${{ needs.release_draft.outputs.tag_name }}'
+          git push
+
+  label:
+    needs:
+      - upload
+      - publish
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      repository-projects: read
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Create PR label if necessary
+        run: |
+          gh label create --color '#ededed' 'autorelease: published' 2> /dev/null || echo 'Label exists'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: pr
+        name: find last merged PR number
+        run: |
+          echo "number=$(gh pr list --state merged --label 'autorelease: tagged' --json number --jq '.[0].number')" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add label to PR
+        run: |
+          gh pr edit ${{ steps.pr.outputs.number }} --add-label 'autorelease: published'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release_version:
+    needs:
+      - publish
+      - release_draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Publish draft release
+        run: gh release edit --draft=false ${{ needs.release_draft.outputs.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
