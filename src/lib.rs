@@ -7,13 +7,14 @@ pub enum Event<I> {
     Tick,
 }
 
+/// This enum is for the items that the menu in the top of the app will contain
 #[derive(Copy, Clone, Debug)]
 pub enum MenuItem {
-    Logs,
-    WorldMap,
     Configurations,
-    Quests,
     Exit,
+    Logs,
+    Quests,
+    WorldMap,
 }
 
 impl From<MenuItem> for usize {
@@ -24,6 +25,34 @@ impl From<MenuItem> for usize {
             MenuItem::Configurations => 2,
             MenuItem::Quests => 3,
             MenuItem::Exit => 4,
+        }
+    }
+}
+
+/// This enum is for the items that the menu in the bottom of the app will contain
+#[derive(Copy, Clone, Debug)]
+pub enum InfoItem {
+    Army,
+    Food,
+    Gold,
+    Iron,
+    InvPoints,
+    Poblation,
+    Water,
+    Wood,
+}
+
+impl From<InfoItem> for usize {
+    fn from(value: InfoItem) -> Self {
+        match value {
+            InfoItem::Poblation => 0,
+            InfoItem::Food => 1,
+            InfoItem::Water => 2,
+            InfoItem::Wood => 3,
+            InfoItem::Iron => 4,
+            InfoItem::Gold => 5,
+            InfoItem::InvPoints => 6,
+            InfoItem::Army => 7,
         }
     }
 }

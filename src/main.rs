@@ -1,6 +1,6 @@
 use crossterm::{
     event::{self, Event as CEvent},
-    terminal::{disable_raw_mode, enable_raw_mode},
+    terminal::enable_raw_mode,
 };
 use little_game::{ui::build_ui, Event};
 use std::{
@@ -13,7 +13,7 @@ use tui::{backend::CrosstermBackend, Terminal};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode().expect("can run in raw mode");
-    let (tx, _rx) = mpsc::channel();
+    let (tx, rx) = mpsc::channel();
     let tick_rate = Duration::from_millis(200);
     thread::spawn(move || {
         let mut last_tick = Instant::now();
@@ -35,9 +35,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     let stdout = io::stdout();
     let backend = CrosstermBackend::new(stdout);
-    let terminal = Terminal::new(backend)?;
-    // terminal.clear()?;
-    build_ui(terminal)?;
-    disable_raw_mode()?;
+    let mut terminal = Terminal::new(backend)?;
+    terminal.clear()?;
+    build_ui(terminal, rx)?;
     Ok(())
 }

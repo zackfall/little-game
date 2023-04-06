@@ -1,4 +1,4 @@
-use std::{fmt, io};
+use std::{fmt, io, sync::mpsc::RecvError};
 
 use thiserror::Error;
 
@@ -10,6 +10,8 @@ pub enum GameError {
     ParseConfigFileError(#[from] serde_json::Error),
     #[error("error trying to build the ui: {0}")]
     UiBuildError(#[from] UiError),
+    #[error("error trying to recieve data from a thread: {0}")]
+    RecvERror(#[from] RecvError),
 }
 
 #[derive(Debug, Clone, Error)]
