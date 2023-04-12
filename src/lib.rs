@@ -33,6 +33,7 @@ impl From<MenuItem> for usize {
 #[derive(Copy, Clone, Debug)]
 pub enum InfoItem {
     Army,
+    Diplomacy,
     Food,
     Gold,
     Iron,
@@ -53,6 +54,7 @@ impl From<InfoItem> for usize {
             InfoItem::Gold => 5,
             InfoItem::InvPoints => 6,
             InfoItem::Army => 7,
+            InfoItem::Diplomacy => 8
         }
     }
 }

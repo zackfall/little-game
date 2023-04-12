@@ -119,6 +119,7 @@ fn build_info_menu(rect: &mut Frame<CrosstermBackend<Stdout>>, chunk: Rect) -> R
         "Gold",
         "InvPoints",
         "Army",
+        "Diplomacy",
     ];
     let menu = menu_titles
         .iter()
@@ -131,7 +132,6 @@ fn build_info_menu(rect: &mut Frame<CrosstermBackend<Stdout>>, chunk: Rect) -> R
         .collect();
     let tabs = Tabs::new(menu)
         .block(Block::default().title("Info").borders(Borders::ALL))
-        // .highlight_style(Style::default().fg(Color::Yellow))
         .divider(Span::raw("|"))
         .style(Style::default().fg(Color::White));
     rect.render_widget(tabs, chunk);
