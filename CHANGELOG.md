@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/zackfall/little-game/compare/v0.1.0...v0.2.0) (2023-04-12)
+
+
+### Features
+
+* add the diplomacy field to the info enum ([091b4f0](https://github.com/zackfall/little-game/commit/091b4f0499e7da4e6f7a370778e1a7e4c5c14ed9))
+
 ## 0.1.0 (2023-04-06)
 
 
