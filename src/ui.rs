@@ -4,7 +4,7 @@ use crate::{
 };
 use crossterm::{
     event::{KeyCode, KeyEvent},
-    terminal::disable_raw_mode,
+    terminal::disable_raw_mode, cursor,
 };
 use std::{io::Stdout, sync::mpsc::Receiver};
 use tui::{
@@ -30,7 +30,10 @@ pub fn build_ui(
             build_info_menu(rect, chunks[2]).expect("should build and place the infor menu item");
             match active_menu_item {
                 MenuItem::Logs => rect.render_widget(render_logs(), chunks[1]),
-                _ => {}
+                MenuItem::Configurations => todo!(),
+                MenuItem::Exit => rect.render_widget(render_exit(&chunks[1]), chunks[1]),
+                MenuItem::Quests => todo!(),
+                MenuItem::WorldMap => todo!(),
             }
         })?;
         match rx.recv()? {
@@ -72,6 +75,12 @@ fn get_chunks(size: Rect) -> Result<Vec<Rect>> {
             "the screen size must not be equal to or less than 300x250",
         ))))
     }
+}
+
+fn render_exit<'a>(chunk: &Rect) -> Paragraph<'a> {
+    let mid_screen = chunk.height / 2;
+
+    todo!();
 }
 
 fn build_menu(
